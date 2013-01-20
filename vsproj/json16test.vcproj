@@ -176,6 +176,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\json16_scanner.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\main.cpp"
 				>
 			</File>
@@ -187,6 +191,10 @@
 			>
 			<File
 				RelativePath="..\json16.h"
+				>
+			</File>
+			<File
+				RelativePath="..\json16_scanner.h"
 				>
 			</File>
 		</Filter>

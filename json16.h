@@ -70,7 +70,7 @@ private:
 struct Parser
 {
 public:
-	Parser(const char* json, uint16_t* work);
+	Parser(const char* json, uint16_t len, uint16_t* work);
 	
 	Type GetValueType() const;
 	const char* GetString() const;
@@ -78,6 +78,7 @@ public:
 	ObjectReader GetObject() const;
 	ArrayReader GetArray() const;
 	
+	const char* ErrorMessage;
 private:
 	const char* json;
 	uint16_t* work;
