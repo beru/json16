@@ -36,21 +36,21 @@ namespace json16 {
 
 struct ValueHeader
 {
-	uint16_t isContainer : 1;
 	uint16_t remain : 15;
+	uint16_t isContainer : 1;
 };
 
 struct ContainerHeader
 {
-	uint16_t isContainer : 1;
-	uint16_t isObject : 1;
 	uint16_t count : 14;
+	uint16_t isObject : 1;
+	uint16_t isContainer : 1;
 };
 
 struct NonContainerHeader
 {
-	uint16_t isContainer : 1;
 	uint16_t srcPos : 15;
+	uint16_t isContainer : 1;
 };
 
 
@@ -132,7 +132,7 @@ ArrayReader getArray(uint16_t num, uint16_t offset, const char* src, const uint1
 uint16_t ObjectReader::getValueOffset(uint16_t idx) const { return offset + 1 + idx * 2 + 1; }
 uint16_t ObjectReader::getValue(uint16_t idx) const  { return parsed[getValueOffset(idx)]; }
 uint16_t ObjectReader::GetCount() const { return getCount(parsed[offset]); }
-const char* ObjectReader::GetName(uint16_t idx) const { return getString(parsed[offset + 1 + idx * 2] << 1, src); }
+const char* ObjectReader::GetName(uint16_t idx) const { return getString(parsed[offset + 1 + idx * 2], src); }
 Type ObjectReader::GetValueType(uint16_t idx) const { return getValueType(getValue(idx), src, parsed); }
 const char* ObjectReader::GetString(uint16_t idx) const { return getString(getValue(idx), src); }
 double ObjectReader::GetNumber(uint16_t idx) const { return getNumber(getValue(idx), src); }
