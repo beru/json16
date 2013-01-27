@@ -48,7 +48,6 @@ struct ContainerHeader
 	uint16_t size;
 };
 
-
 static inline
 uint16_t getCount(uint16_t num)
 {
@@ -105,93 +104,64 @@ double getNumber(uint16_t num, const char* src)
 	return strtod(buff, &endptr);
 }
 
-static inline
-ObjectReader getObject(uint16_t num, uint16_t offset, const char* src, const uint16_t* parsed)
-{
-	ContainerHeader v = *(ContainerHeader*) &num;
-	assert(v.isContainer);
-	assert(v.isObject);
-	return ObjectReader(offset, src, parsed);
-}
-
-static inline
-ArrayReader getArray(uint16_t num, uint16_t offset, const char* src, const uint16_t* parsed)
-{
-	ContainerHeader v = *(ContainerHeader*) &num;
-	assert(v.isContainer);
-	assert(!v.isObject);
-	return ArrayReader(offset, src, parsed);
-}
-
-uint16_t ObjectReader::getValueOffset(uint16_t idx) const
-{
-	uint16_t pos = offset + 2;
-	for (uint16_t i=0; i<idx; ++i) {
-		++pos;
-		ValueHeader v = *(const ValueHeader*)&parsed[pos];
-		if (v.isContainer) {
-			ContainerHeader c = *(const ContainerHeader*)&parsed[pos];
-			pos += c.size;
-		}else {
-			++pos;
-		}
-	}
-	return pos + 1;
-}
-
-uint16_t ObjectReader::getValue(uint16_t idx) const 
-{
-	return parsed[getValueOffset(idx)];
-}
-
 uint16_t ObjectReader::GetCount() const
 {
 	return getCount(parsed[offset]);
 }
 
-const char* ObjectReader::GetName(uint16_t idx) const
+uint16_t ObjectReader::readValue() const
 {
-	return getString(parsed[getValueOffset(idx)-1], src);
+	return parsed[readOffset];
 }
 
-Type ObjectReader::GetValueType(uint16_t idx) const
+void ObjectReader::moveNext()
 {
-	return getValueType(getValue(idx), src, parsed);
-}
-
-const char* ObjectReader::GetString(uint16_t idx) const
-{
-	return getString(getValue(idx), src);
-}
-
-double ObjectReader::GetNumber(uint16_t idx) const
-{
-	return getNumber(getValue(idx), src);
-}
-
-ObjectReader ObjectReader::GetObject(uint16_t idx) const
-{
-	return getObject(getValue(idx), getValueOffset(idx), src, parsed);
-}
-
-ArrayReader ObjectReader::GetArray(uint16_t idx) const
-{
-	return getArray(getValue(idx), getValueOffset(idx), src, parsed);
-}
-
-uint16_t ArrayReader::getValueOffset(uint16_t idx) const
-{
-	uint16_t pos = offset + 2;
-	for (uint16_t i=0; i<idx; ++i) {
-		ValueHeader v = *(const ValueHeader*)&parsed[pos];
-		if (v.isContainer) {
-			ContainerHeader c = *(const ContainerHeader*)&parsed[pos];
-			pos += c.size;
-		}else {
-			++pos;
-		}
+	ValueHeader vh = *(const ValueHeader*) &parsed[readOffset];
+	if (vh.isContainer) {
+		ContainerHeader ch = *(const ContainerHeader*) &parsed[readOffset];
+		readOffset += ch.size;
+	}else {
+		++readOffset;
 	}
-	return pos;
+}
+
+const char* ObjectReader::ReadName()
+{
+	return getString(parsed[readOffset++], src);
+}
+
+Type ObjectReader::GetValueType() const
+{
+	uint16_t val = readValue();
+	return getValueType(val, src, parsed);
+}
+
+const char* ObjectReader::ReadString()
+{
+	uint16_t val = readValue();
+	moveNext();
+	return getString(val, src);
+}
+
+double ObjectReader::ReadNumber()
+{
+	uint16_t val = readValue();
+	moveNext();
+	return getNumber(val, src);
+}
+
+ObjectReader ObjectReader::ReadObject()
+{
+	uint16_t offset = readOffset;
+	moveNext();
+	return ObjectReader(offset, src, parsed);
+}
+
+ArrayReader ObjectReader::ReadArray()
+{
+	uint16_t offset = readOffset;
+	moveNext();
+	return ArrayReader(offset, src, parsed);
 }
 
 Type Parser::GetValueType() const
@@ -211,12 +181,12 @@ double Parser::GetNumber() const
 
 ObjectReader Parser::GetObject() const
 {
-	return getObject(*work, 0, json, work);
+	return ObjectReader(0, json, work);
 }
 
 ArrayReader Parser::GetArray() const
 {
-	return getArray(*work, 0, json, work);
+	return ArrayReader(0, json, work);
 }
 
 Parser::Parser(const char* json, uint16_t len, uint16_t* work)

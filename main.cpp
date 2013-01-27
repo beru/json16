@@ -28,22 +28,22 @@ std::string toString(const char* str)
 }
 
 template <typename ReaderT>
-void printValue(json16::Type type, const ReaderT& reader, int i)
+void printValue(json16::Type type, ReaderT& reader)
 {
 	switch (type) {
 	case json16::Type_string:
-		printf("string %s\n", toString(reader.GetString(i)).c_str());
+		printf("string %s\n", toString(reader.ReadString()).c_str());
 		break;
 	case json16::Type_number:
-		printf("double %f\n", reader.GetNumber(i));
+		printf("double %f\n", reader.ReadNumber());
 		break;
 	case json16::Type_object:
 		printf("object\n");
-		printObject(reader.GetObject(i));
+		printObject(reader.ReadObject());
 		break;
 	case json16::Type_array:
 		printf("array\n");
-		printArray(reader.GetArray(i));
+		printArray(reader.ReadArray());
 		break;
 	case json16::Type_true:
 		printf("true\n");
@@ -57,23 +57,23 @@ void printValue(json16::Type type, const ReaderT& reader, int i)
 	}
 }
 
-void printObject(const json16::ObjectReader& reader)
+void printObject(json16::ObjectReader& reader)
 {
 	uint16_t cnt = reader.GetCount();
 	for (uint16_t i=0; i<cnt; ++i) {
-		const char* name = reader.GetName(i);
+		const char* name = reader.ReadName();
 		printf("name = %s\n", toString(name).c_str());
-		json16::Type type = reader.GetValueType(i);
-		printValue(type, reader, i);
+		json16::Type type = reader.GetValueType();
+		printValue(type, reader);
 	}
 }
 
-void printArray(const json16::ArrayReader& reader)
+void printArray(json16::ArrayReader& reader)
 {
 	uint16_t cnt = reader.GetCount();
 	for (uint16_t i=0; i<cnt; ++i) {
-		json16::Type type = reader.GetValueType(i);
-		printValue(type, reader, i);
+		json16::Type type = reader.GetValueType();
+		printValue(type, reader);
 	}
 }
 

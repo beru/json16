@@ -21,24 +21,26 @@ public:
 		:
 		offset(offset),
 		src(src),
-		parsed(parsed)
+		parsed(parsed),
+		readOffset(offset+2)
 	{
 	}
 	
 	uint16_t GetCount() const;
-	const char* GetName(uint16_t idx) const;
-	Type GetValueType(uint16_t idx) const;
-	const char* GetString(uint16_t idx) const;
-	double GetNumber(uint16_t idx) const;
-	ObjectReader GetObject(uint16_t idx) const;
-	ArrayReader GetArray(uint16_t idx) const;
+	const char* ReadName();
+	Type GetValueType() const;
+	const char* ReadString();
+	double ReadNumber();
+	ObjectReader ReadObject();
+	ArrayReader ReadArray();
 	
 protected:
-	virtual uint16_t getValueOffset(uint16_t idx) const;
-	uint16_t getValue(uint16_t idx) const;
+	uint16_t readValue() const;
+	virtual void moveNext();
 	uint16_t offset;
 	const char* src;
 	const uint16_t* parsed;
+	uint16_t readOffset;
 };
 
 struct ArrayReader : ObjectReader
@@ -51,8 +53,7 @@ public:
 	}
 	
 protected:
-	const char* GetName(uint16_t idx) const { return ""; }
-	uint16_t getValueOffset(uint16_t idx) const;
+	const char* ReadName();
 };
 
 struct Parser
