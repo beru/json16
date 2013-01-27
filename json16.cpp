@@ -36,7 +36,7 @@ namespace json16 {
 
 struct ValueHeader
 {
-	uint16_t remain : 15;
+	uint16_t position : 15;
 	uint16_t isContainer : 1;
 };
 
@@ -45,12 +45,7 @@ struct ContainerHeader
 	uint16_t count : 14;
 	uint16_t isObject : 1;
 	uint16_t isContainer : 1;
-};
-
-struct NonContainerHeader
-{
-	uint16_t srcPos : 15;
-	uint16_t isContainer : 1;
+	uint16_t size;
 };
 
 
@@ -70,8 +65,7 @@ Type getValueType(uint16_t num, const char* src, const uint16_t* parsed)
 		ContainerHeader c = *(ContainerHeader*) &v;
 		return c.isObject ? Type_object : Type_array;
 	}else {
-		NonContainerHeader n = *(NonContainerHeader*) & v;
-		const char* p = src + n.srcPos;
+		const char* p = src + v.position;
 		switch (json16::Scan(p)) {
 		case TOKEN_TRUE: return Type_true;
 		case TOKEN_FALSE: return Type_false;
@@ -86,9 +80,9 @@ Type getValueType(uint16_t num, const char* src, const uint16_t* parsed)
 static inline
 const char* getString(uint16_t num, const char* src)
 {
-	NonContainerHeader v = *(NonContainerHeader*) &num;
+	ValueHeader v = *(ValueHeader*) &num;
 	assert(!v.isContainer);
-	const char* op = src + v.srcPos;
+	const char* op = src + v.position;
 	const char* p = op;
 	TokenType tt = json16::Scan(p);
 	assert(tt == TOKEN_STRING);
@@ -98,9 +92,9 @@ const char* getString(uint16_t num, const char* src)
 static inline
 double getNumber(uint16_t num, const char* src)
 {
-	NonContainerHeader v = *(NonContainerHeader*) &num;
+	ValueHeader v = *(ValueHeader*) &num;
 	assert(!v.isContainer);
-	const char* op = src + v.srcPos;
+	const char* op = src + v.position;
 	const char* p = op;
 	TokenType tt = json16::Scan(p);
 	assert(tt == TOKEN_NUMBER);
@@ -129,30 +123,101 @@ ArrayReader getArray(uint16_t num, uint16_t offset, const char* src, const uint1
 	return ArrayReader(offset, src, parsed);
 }
 
-uint16_t ObjectReader::getValueOffset(uint16_t idx) const { return offset + 1 + idx * 2 + 1; }
-uint16_t ObjectReader::getValue(uint16_t idx) const  { return parsed[getValueOffset(idx)]; }
-uint16_t ObjectReader::GetCount() const { return getCount(parsed[offset]); }
-const char* ObjectReader::GetName(uint16_t idx) const { return getString(parsed[offset + 1 + idx * 2], src); }
-Type ObjectReader::GetValueType(uint16_t idx) const { return getValueType(getValue(idx), src, parsed); }
-const char* ObjectReader::GetString(uint16_t idx) const { return getString(getValue(idx), src); }
-double ObjectReader::GetNumber(uint16_t idx) const { return getNumber(getValue(idx), src); }
-ObjectReader ObjectReader::GetObject(uint16_t idx) const { return getObject(getValue(idx), getValueOffset(idx), src, parsed); }
-ArrayReader ObjectReader::GetArray(uint16_t idx) const { return getArray(getValue(idx), getValueOffset(idx), src, parsed); }
+uint16_t ObjectReader::getValueOffset(uint16_t idx) const
+{
+	uint16_t pos = offset + 2;
+	for (uint16_t i=0; i<idx; ++i) {
+		++pos;
+		ValueHeader v = *(const ValueHeader*)&parsed[pos];
+		if (v.isContainer) {
+			ContainerHeader c = *(const ContainerHeader*)&parsed[pos];
+			pos += c.size;
+		}else {
+			++pos;
+		}
+	}
+	return pos + 1;
+}
 
-uint16_t ArrayReader::getValueOffset(uint16_t idx) const { return offset + 1 + idx; }
-uint16_t ArrayReader::getValue(uint16_t idx) const { return parsed[getValueOffset(idx)]; }
-uint16_t ArrayReader::GetCount() const { return getCount(parsed[offset]); }
-Type ArrayReader::GetValueType(uint16_t idx) const { return getValueType(getValue(idx), src, parsed); }
-const char* ArrayReader::GetString(uint16_t idx) const { return getString(getValue(idx), src); }
-double ArrayReader::GetNumber(uint16_t idx) const { return getNumber(getValue(idx), src); }
-ObjectReader ArrayReader::GetObject(uint16_t idx) const { return getObject(getValue(idx), getValueOffset(idx), src, parsed); }
-ArrayReader ArrayReader::GetArray(uint16_t idx) const { return getArray(getValue(idx), getValueOffset(idx), src, parsed); }
+uint16_t ObjectReader::getValue(uint16_t idx) const 
+{
+	return parsed[getValueOffset(idx)];
+}
 
-Type Parser::GetValueType() const { return getValueType(*work, json, work); }
-const char* Parser::GetString() const { return getString(*work, json); }
-double Parser::GetNumber() const { return getNumber(*work, json); }
-ObjectReader Parser::GetObject() const { return getObject(*work, 0, json, work); }
-ArrayReader Parser::GetArray() const { return getArray(*work, 0, json, work); }
+uint16_t ObjectReader::GetCount() const
+{
+	return getCount(parsed[offset]);
+}
+
+const char* ObjectReader::GetName(uint16_t idx) const
+{
+	return getString(parsed[getValueOffset(idx)-1], src);
+}
+
+Type ObjectReader::GetValueType(uint16_t idx) const
+{
+	return getValueType(getValue(idx), src, parsed);
+}
+
+const char* ObjectReader::GetString(uint16_t idx) const
+{
+	return getString(getValue(idx), src);
+}
+
+double ObjectReader::GetNumber(uint16_t idx) const
+{
+	return getNumber(getValue(idx), src);
+}
+
+ObjectReader ObjectReader::GetObject(uint16_t idx) const
+{
+	return getObject(getValue(idx), getValueOffset(idx), src, parsed);
+}
+
+ArrayReader ObjectReader::GetArray(uint16_t idx) const
+{
+	return getArray(getValue(idx), getValueOffset(idx), src, parsed);
+}
+
+uint16_t ArrayReader::getValueOffset(uint16_t idx) const
+{
+	uint16_t pos = offset + 2;
+	for (uint16_t i=0; i<idx; ++i) {
+		ValueHeader v = *(const ValueHeader*)&parsed[pos];
+		if (v.isContainer) {
+			ContainerHeader c = *(const ContainerHeader*)&parsed[pos];
+			pos += c.size;
+		}else {
+			++pos;
+		}
+	}
+	return pos;
+}
+
+Type Parser::GetValueType() const
+{
+	return getValueType(*work, json, work);
+}
+
+const char* Parser::GetString() const
+{
+	return getString(*work, json);
+}
+
+double Parser::GetNumber() const
+{
+	return getNumber(*work, json);
+}
+
+ObjectReader Parser::GetObject() const
+{
+	return getObject(*work, 0, json, work);
+}
+
+ArrayReader Parser::GetArray() const
+{
+	return getArray(*work, 0, json, work);
+}
 
 Parser::Parser(const char* json, uint16_t len, uint16_t* work)
 	:
@@ -175,7 +240,7 @@ Parser::Parser(const char* json, uint16_t len, uint16_t* work)
 		Mode_Object_NAME = 2,
 		Mode_Object_COLON = 3|Mode_BeginBit,
 		Mode_Object_VALUE = 4|Mode_EndBit,
-		Mode_Object_COMMA = 5,
+		Mode_Object_COMMA = 5|Mode_BeginBit,
 		Mode_Object_RIGHT_BRACE = 6|Mode_EndBit,
 		Mode_Array_LEFT_BRACKET = 7|Mode_BeginBit,
 		Mode_Array_VALUE = 8|Mode_EndBit,
@@ -186,7 +251,7 @@ Parser::Parser(const char* json, uint16_t len, uint16_t* work)
 		const char* op = p;
 		tt = json16::Scan(p);
 		if (tt & TOKEN_VALUE) {
-			if (mode == Mode_Object_LEFT_BRACE) {
+			if (mode == Mode_Object_LEFT_BRACE || mode == Mode_Object_COMMA) {
 				if (tt == TOKEN_STRING) {
 					mode = Mode_Object_NAME;
 					*pWork++ = op - json;
@@ -204,11 +269,11 @@ Parser::Parser(const char* json, uint16_t len, uint16_t* work)
 					mode = Mode_Array_VALUE;
 					break;
 				}
-				NonContainerHeader hdr;
+				ValueHeader hdr;
 				hdr.isContainer = false;
-				hdr.srcPos = op - json;
+				hdr.position = op - json;
 				*pWork++ = *(const uint16_t*)&hdr;
-				++memberCounts[posIdx-1];
+				++memberCounts[posIdx];
 			}else {
 				ErrorMessage = "value in invalid position";
 				return;
@@ -233,8 +298,8 @@ Parser::Parser(const char* json, uint16_t len, uint16_t* work)
 				mode = Mode_Object_LEFT_BRACE;
 				objectBits = (objectBits<<1)|1;
 				containerPositions[posIdx] = pWork - work;
-				memberCounts[posIdx] = 0;
-				++pWork;
+				memberCounts[posIdx+1] = 0;
+				pWork += 2;
 				++posIdx;
 				break;
 			case TOKEN_RIGHT_BRACE:
@@ -245,20 +310,22 @@ Parser::Parser(const char* json, uint16_t len, uint16_t* work)
 					mode = Mode_Object_RIGHT_BRACE;
 					objectBits >>= 1;
 					--posIdx;
+					++memberCounts[posIdx];
 					uint16_t pos = containerPositions[posIdx];
 					ContainerHeader hdr;
 					hdr.isContainer = 1;
 					hdr.isObject = 1;
-					hdr.count = memberCounts[posIdx];
-					work[pos] = *(const uint16_t*) &hdr;
+					hdr.count = memberCounts[posIdx+1];
+					hdr.size = pWork - work - pos;
+					*(ContainerHeader*) &work[pos] = hdr;
 				}
 				break;
 			case TOKEN_LEFT_BRACKET:
 				mode = Mode_Array_LEFT_BRACKET;
 				objectBits <<= 1;
 				containerPositions[posIdx] = pWork - work;
-				memberCounts[posIdx] = 0;
-				++pWork;
+				memberCounts[posIdx+1] = 0;
+				pWork += 2;
 				++posIdx;
 				break;
 			case TOKEN_RIGHT_BRACKET:
@@ -269,12 +336,14 @@ Parser::Parser(const char* json, uint16_t len, uint16_t* work)
 					mode = Mode_Array_RIGHT_BRACKET;
 					objectBits >>= 1;
 					--posIdx;
+					++memberCounts[posIdx];
 					uint16_t pos = containerPositions[posIdx];
 					ContainerHeader hdr;
 					hdr.isContainer = 1;
-					hdr.isObject = false;
-					hdr.count = memberCounts[posIdx];
-					work[pos] = *(const uint16_t*) &hdr;
+					hdr.isObject = 0;
+					hdr.count = memberCounts[posIdx+1];
+					hdr.size = pWork - work - pos;
+					*(ContainerHeader*) &work[pos] = hdr;
 				}
 				break;
 			}
