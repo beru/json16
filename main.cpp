@@ -55,6 +55,7 @@ void printValue(json16::Type type, ReaderT& reader)
 		printf("null\n");
 		break;
 	}
+	reader.MoveNext();
 }
 
 void printObject(json16::ObjectReader& reader)

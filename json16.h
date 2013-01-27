@@ -33,10 +33,10 @@ public:
 	double ReadNumber();
 	ObjectReader ReadObject();
 	ArrayReader ReadArray();
+	void MoveNext();
 	
 protected:
 	uint16_t readValue() const;
-	virtual void moveNext();
 	uint16_t offset;
 	const char* src;
 	const uint16_t* parsed;

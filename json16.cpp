@@ -114,7 +114,7 @@ uint16_t ObjectReader::readValue() const
 	return parsed[readOffset];
 }
 
-void ObjectReader::moveNext()
+void ObjectReader::MoveNext()
 {
 	ValueHeader vh = *(const ValueHeader*) &parsed[readOffset];
 	if (vh.isContainer) {
@@ -139,28 +139,24 @@ Type ObjectReader::GetValueType() const
 const char* ObjectReader::ReadString()
 {
 	uint16_t val = readValue();
-	moveNext();
 	return getString(val, src);
 }
 
 double ObjectReader::ReadNumber()
 {
 	uint16_t val = readValue();
-	moveNext();
 	return getNumber(val, src);
 }
 
 ObjectReader ObjectReader::ReadObject()
 {
 	uint16_t offset = readOffset;
-	moveNext();
 	return ObjectReader(offset, src, parsed);
 }
 
 ArrayReader ObjectReader::ReadArray()
 {
 	uint16_t offset = readOffset;
-	moveNext();
 	return ArrayReader(offset, src, parsed);
 }
 
